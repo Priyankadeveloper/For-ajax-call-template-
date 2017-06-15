@@ -1,0 +1,105 @@
+<?php
+/**
+ *  Template Name: Testing
+ */
+
+get_header(); 
+
+$terms = get_terms( 'category_', array(
+    'orderby'    => 'count',
+    'hide_empty' => 0
+) );
+// now run a query for each 
+foreach( $terms as $term ) {
+    
+//echo'<h2>' . $term->name . '</h2>';
+ 
+ //echo z_taxonomy_image($term->term_id);
+ 
+    // Define the query
+    $args = array(
+        'post_type' => 'video',
+        'category_' => $term->slug
+    );
+    $query = new WP_Query( $args );
+    // Start the Loop
+ $query->the_post(); ?>
+ 
+<div class="animal-listing" id="post-<?php the_ID(); ?>">
+    <a href="javascript:void(0);" data-id="<?php echo $term->term_id; ?>" class="user_choice"><?php echo'<h2>' . $term->name . '</h2>';?></a>
+</div>
+ <div id="ajax-response"></div>
+<?php } ?>
+<script>
+jQuery(document).ready(function($) {
+	$('.user_choice').click(function(){
+		var ajax_url = "<?php echo admin_url('admin-ajax.php');?>";
+		var id = $(this).data('id');
+		var data = {
+			'action': 'get_prev',
+			'category': id     // We pass php values differently!
+		};
+		console.log(ajax_url);
+		// We can also pass the url value separately from ajaxurl for front end AJAX implementations
+		jQuery.post(ajax_url, data, function(response) {
+			//alert('Got this from the server: ' + response);
+			$('#ajax-response').html(response);
+		});
+	});
+
+});
+</script>
+<?php
+ get_footer();
+---------------------------
+Apply this code  first create custom post type..that is video
+like show in below (in function.php)
+
+function create_posttype() {
+
+	register_post_type( 'video',
+	// CPT Options
+		array(
+			'labels' => array(
+				'name' => __( 'video' ),
+				'singular_name' => __( 'video' )
+			),
+			'public' => true,
+			'has_archive' => true,
+			'rewrite' => array('slug' => 'video'),
+		)
+	);
+}
+
+// Hooking up our function to theme setup
+add_action( 'init', 'create_posttype' );
+-------------------------
+add new in function.php
+function get_prev_ajax_handler() {
+  global $wpdb; // this is how you get access to the database
+  $category = intval( $_POST['category'] ); // get the id value which has been posted
+  $args = array(
+	'post_type' => 'video',
+	'tax_query' => array(		
+		array(
+			'taxonomy' => 'category_',
+			'field'    => 'term_id',
+			'terms'    =>  $category,
+		)
+	),
+);
+$query = new WP_Query( $args );
+if ( $query->have_posts() ) :
+
+	while ( $query->have_posts() ) : $query->the_post();
+		the_title();
+		echo '<br>';
+	endwhile;
+else :
+	echo wpautop( 'Sorry, no posts were found' );
+endif;
+  wp_die(); // close the connection
+}
+
+add_action('wp_ajax_get_prev', 'get_prev_ajax_handler'); // add action for logged users
+add_action( 'wp_ajax_nopriv_get_prev', 'get_prev_ajax_handler' ); // add action for unlogged users
